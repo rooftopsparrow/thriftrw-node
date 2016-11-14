@@ -37,7 +37,7 @@ var ThriftUnrecognizedException = require('./unrecognized-exception')
 var readType = require('./read').readType;
 
 function ThriftField(def, struct) {
-    assert(def.isResult || def.id.value > 0,
+    assert(def.isResult || (struct.thrift && struct.thrift.allowNegativeKeys) || def.id.value > 0,
         'field identifier must be greater than 0' +
         ' for ' + JSON.stringify(def.name) +
         ' on ' + JSON.stringify(struct.name) +
@@ -70,6 +70,8 @@ function ThriftStruct(options) {
     this.name = null;
     // Strict mode is on by default. Because we have strict opinions about Thrift.
     this.strict = options.strict !== undefined ? options.strict : true;
+    // Older thrift files allowed negative field identifiers
+    this.allowNegativeKeys = options.allowNegativeKeys !== undefined ? options.allowNegativeKeys : false
     // TODO bring in serviceName
     this.fields = [];
     this.fieldNames = [];

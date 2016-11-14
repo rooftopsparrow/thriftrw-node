@@ -516,3 +516,101 @@ test('enforces ordinal identifiers', function t(assert) {
     }
     assert.end();
 });
+
+test('enforces positive ordinal identifiers', function t(assert) {
+    var thrift = new ThriftStruct();
+    try {
+        thrift.compile({
+            id: {name: 'Health'},
+            fields: [
+                {
+                    id: {value: -1, line: 1, column: 4},
+                    name: 'ok',
+                    valueType: {
+                        type: 'BaseType',
+                        baseType: 'boolean'
+                    },
+                    optional: true,
+                    required: false
+                }
+            ]
+        }, {});
+        assert.fail('should throw');
+    } catch (err) {
+        assert.equal(err.message, 'field identifier must be greater than 0 for "ok" on "Health" at 1:4');
+    }
+    assert.end();
+});
+
+test('negative identifiers may now be used', function t(assert) {
+    var thrift = new ThriftStruct();
+    thrift.compile({
+        id: {name: 'Health'},
+        fields: [
+            {
+                id: {value: -1},
+                name: 'ok',
+                valueType: {
+                    type: 'BaseType',
+                    baseType: 'boolean'
+                },
+                optional: true,
+                required: false
+            }
+        ]
+    }, {allowNegativeKeys: true});
+    assert.equal(thrift.fieldsById[-1].name, 'ok', 'field must have negative key');
+    assert.end();
+});
+
+var negativeHealth = new ThriftStruct();
+
+// Manually drive compile(idl) and link(thrift). This would be done by the Spec.
+
+negativeHealth.compile({
+    id: {name: 'Health'},
+    fields: [
+        {
+            id: {value: -1},
+            name: 'ok',
+            valueType: {
+                type: 'BaseType',
+                baseType: 'boolean'
+            },
+            optional: false,
+            required: true
+        }
+    ]
+}, {allowNegativeKeys: true});
+
+negativeHealth.link(thriftMock);
+
+var NegHealth = negativeHealth.Constructor;
+
+var cases = [
+
+    // good
+    [new NegHealth({ok: true}), [
+        0x02,                      // type:1 -- 2 -- BOOL
+        0x00, 0xff,                // id:2   -- 1 -- ok
+        0x01,                      // ok:1   -- 1 -- true
+        0x00                       // type:1 -- 0 -- stop
+    ]],
+
+    // bad
+    [new NegHealth({ok: false}), [
+        0x02,                      // type:1 -- 2 -- BOOL
+        0x00, 0xff,                // id:2   -- 1 -- ok
+        0x00,                      // ok:1   -- 0 -- false
+        0x00                       // type:1 -- 0 -- stop
+    ]]
+
+];
+
+test('negative identifiers HealthRW', testRW.cases(NegHealth.rw, cases));
+
+/*test('negative identifier should write to Buffer', function t(assert) {
+    var res = Health.rw.toBuffer(cases[0][0]);
+    assert.deepEqual(res.value, new Buffer(cases[0][1]), 'buffer matches');
+    assert.end();
+});*/
